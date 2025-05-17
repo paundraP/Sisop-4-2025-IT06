@@ -1,0 +1,27 @@
+version: "3.8"
+
+services:
+  antink-server:
+    build: .
+    container_name: antink-server
+    privileged: true
+    devices:
+      - /dev/fuse
+    cap_add:
+      - SYS_ADMIN
+    volumes:
+      - ./it24_host:/it24_host
+      - ./antink-logs:/var/log
+      - antink-mount:/antink_mount
+    security_opt:
+      - apparmor:unconfined
+
+  antink-logger:
+    image: alpine
+    container_name: antink-logger
+    volumes:
+      - ./antink-logs:/var/log
+    command: sh -c "touch /var/log/it24.log && tail -f /var/log/it24.log"
+
+volumes:
+  antink-mount:
