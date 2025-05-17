@@ -14,12 +14,12 @@
 const char *BAYMAX_FILE = "Baymax.jpeg";
 const char *RELICS_DIR = "relics/";
 const char *LOG_FILE = "activity.log";
-const int CHUNK_SIZE = 1024; // Ukuran chunk dalam byte
+const int CHUNK_SIZE = 1024; 
 
 
 void logAct(const char *format, ...) {
     FILE *logFile = fopen(LOG_FILE, "a");
-    if (!logFile) return; // Jika gagal membuka log, keluar
+    if (!logFile) return; 
 
     time_t rawtime;
     struct tm *timeinfo;
