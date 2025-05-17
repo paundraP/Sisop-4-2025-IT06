@@ -71,7 +71,7 @@ int main(int argc, char *argv[]) {
         img_data[i] = hex_to_int(hex_string[i * 2], hex_string[i * 2 + 1]);
     }
 
-    // Isi pixel gambar (grayscale)
+    
     int k = 0;
     for (int y = 0; y < img_height; y++) {
         for (int x = 0; x < img_width; x++) {
@@ -87,7 +87,7 @@ int main(int argc, char *argv[]) {
 
     free(img_data);
 
-    // Membuat nama file output
+    
     time_t t = time(NULL);
     struct tm tm = *localtime(&t);
     char timestamp[20];
@@ -107,7 +107,7 @@ int main(int argc, char *argv[]) {
     strcat(output_filename, timestamp);
     strcat(output_filename, ".png");
 
-    // Simpan gambar
+    
     FILE *output_file = fopen(output_filename, "wb");
     if (!output_file) {
         perror("Error opening output file");
@@ -119,7 +119,7 @@ int main(int argc, char *argv[]) {
     fclose(output_file);
     gdImageDestroy(im);
 
-    // Membuat log
+   
     FILE *log_file = fopen("conversion.log", "a");
     if (!log_file) {
         perror("Error opening log file");
