@@ -953,11 +953,16 @@ Log menunjukkan readdir completed for / berkali-kali. Ini bisa jadi karena file 
 Kendala: Log menunjukkan banyak permintaan LOOKUP dan getattr untuk file seperti /.Trash, /.Trash-1000, /.xdg-volume-info, dan /autorun.inf, yang semuanya mengembalikan error ENOENT (No such file or directory). Meskipun ini bukan error kritis, ini menunjukkan bahwa sistem mencoba mengakses file yang tidak ada di filesystemmu.
 Penyebab: File-file ini biasanya dicari oleh file manager (seperti Nautilus) atau sistem operasi. Kode baymax sudah benar mengembalikan ENOENT, tapi ini bisa mengalihkan perhatian dari fokus utama, yaitu menampilkan Baymax.jpeg.
 
-List Error
+List Error:
+
 ![Baymax 1](image/baymax1.png)
 ![Baymax 2](image/baymax2.png)
 ![Baymax 3](image/baymax3.png)
 ![Baymax 4](image/baymax4.png)
+
+
+
+
 
 
 
