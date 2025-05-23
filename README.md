@@ -301,7 +301,11 @@ Konversi dicatat ke conversion.log dengan format:
 ```
 FUSE hanya digunakan untuk membaca file dari mnt (baik .txt maupun .png), bukan untuk melakukan konversi saat file dibuka, sehingga konversi terjadi satu kali di awal saat main() dijalankan.
 
-
+List error: 
+![Hexed 1](image/hexed1.png)
+![Hexed 2](image/hexed2.png)
+![Hexed 3](image/hexed3.png)
+![Hexed 4](image/hexed4.png)
 
 
 ## SOAL 2 (Putri Joselina Silitonga)
@@ -968,7 +972,7 @@ List Error:
 
 
 
-# Soal 3 (Paundra Pujo Darmawan)
+## Soal 3 (Paundra Pujo Darmawan)
 
 Pada soal ini, objective kita adalah menggunakan linux secara isolasi menggunakan docker. Jadi kita menggunakan image linux yang sudah ada dan menjalankan program didalam kontainer yang terisolasi. Pertama-tama kita dapat setting untuk membuat kontainer dengan [docker-compose.yml](soal_3/docker-compose.yml). Dan menjalankan program yang sudah kita buat kedalam kontainer tersebut dengan [Dockerfile](soal_3/Dockerfile).
 
