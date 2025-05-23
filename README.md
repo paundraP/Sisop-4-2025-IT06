@@ -7,6 +7,301 @@ Repository ini berisi hasil pengerjaan Praktikum Sistem Operasi 2025 Modul 4
 | Paundra Pujo Darmawan    | 5027241008 |
 | Putri Joselina Silitonga | 5027241116 |
 
+# Soal 1 (Putri Joselina Silitonga)
+
+`hexed.c` (Kode Baru) vs Kode Lama
+
+## 1. Latar Belakang
+Kode lama dan kode baru (`hexed.c`) adalah implementasi filesystem berbasis FUSE dengan tujuan yang berbeda:
+- **Kode Lama**: Menampilkan file `Baymax.jpeg` sebagai satu file di root filesystem, meskipun sebenarnya dipecah menjadi chunk (misalnya, `Baymax.jpeg.000`) di direktori `relics/`. Mendukung operasi baca, tulis, hapus, dan rename.
+- **Kode Baru (`hexed.c`)**: Membaca file teks heksadesimal dari direktori `anomali/`, mengonversinya menjadi file biner (misalnya, `.png`) di direktori `image/`, dengan fokus pada operasi baca saja.
+
+
+## 2. Kekurangan 
+
+### Kode Lama
+Kode lama memiliki beberapa kekurangan dan masalah yang tidak terselesaikan, terutama dalam hal robustitas, validasi data, dan fleksibilitas struktur filesystem.
+
+#### 2.1. Tidak Ada Validasi Data Chunk
+- **Masalah**: Kode lama tidak memeriksa validitas data dalam chunk (misalnya, apakah chunk benar-benar bagian dari file gambar atau rusak). Jika satu chunk hilang atau korup, file `Baymax.jpeg` tidak dapat dibaca dengan benar, menyebabkan output yang salah atau error tanpa pemberitahuan yang jelas.
+- **Dampak**: Saya tidak tahu jika data tidak valid, dan filesystem bisa mengembalikan data yang rusak tanpa peringatan.
+
+  ```c
+  static int baymax_read(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fi) {
+      if (strcmp(path + 1, BAYMAX_FILE) != 0) return -ENOENT;
+      int totalRead = 0;
+      int chunkIdx = offset / CHUNK_SIZE;
+      int chunkOffset = offset % CHUNK_SIZE;
+      char chunkFile[256], relPath[256];
+      while (toRead > 0) {
+          chunkname(BAYMAX_FILE, chunkIdx++, chunkFile);
+          rpath(chunkFile, relPath);
+          FILE *f = fopen(relPath, "rb");
+          if (!f) break;
+          fseek(f, chunkOffset, SEEK_SET);
+          size_t readSize = (toRead > (CHUNK_SIZE - chunkOffset)) ? (CHUNK_SIZE - chunkOffset) : toRead;
+          size_t bytesRead = fread(buf + totalRead, 1, readSize, f);
+          fclose(f);
+          if (bytesRead == 0) break;
+          totalRead += bytesRead;
+          toRead -= bytesRead;
+          chunkOffset = 0;
+      }
+      return totalRead;
+  }
+  ```
+
+  Penjelasan: Fungsi ini hanya membaca chunk tanpa memeriksa apakah data valid (misalnya, header PNG untuk file gambar). Jika chunk hilang, loop berhenti tanpa laporan error spesifik.
+
+2.2. Struktur Filesystem Terlalu Sederhana
+
+**Masalah**:
+ Kode lama hanya menampilkan satu file (Baymax.jpeg) di root tanpa subdirektori, sehingga tidak mendukung pengelolaan banyak file atau struktur direktori yang lebih kompleks.
+Dampak: Tidak cocok untuk skenario dengan banyak file atau kebutuhan untuk organisasi data yang lebih baik, seperti memisahkan input dan output.
+
+```
+static int baymax_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info *fi, enum fuse_readdir_flags flags) {
+    if (strcmp(path, "/") != 0) return -ENOENT;
+    filler(buf, ".", NULL, 0, 0);
+    filler(buf, "..", NULL, 0, 0);
+    filler(buf, BAYMAX_FILE, NULL, 0, 0);
+    return 0;
+}
+```
+Penjelasan: Hanya menampilkan Baymax.jpeg, tanpa dukungan untuk subdirektori atau file lain.
+
+2.3. Logging Tidak Spesifik
+**Masalah:**
+Logging ke activity.log mencakup berbagai operasi (OPEN, CREATE, WRITE, dll.), tetapi tidak memberikan detail spesifik tentang proses seperti konversi data atau error tertentu.
+Dampak: Sulit untuk mendiagnosis masalah spesifik, seperti kegagalan membaca chunk atau korupsi data.
+```
+void logAct(const char *format, ...) {
+    FILE *logFile = fopen(LOG_FILE, "a");
+    if (!logFile) return;
+    time_t rawtime;
+    struct tm *timeinfo;
+    char timestamp[64];
+    time(&rawtime);
+    timeinfo = localtime(&rawtime);
+    strftime(timestamp, sizeof(timestamp), "[%Y-%m-%d %H:%M:%S] ", timeinfo);
+    fprintf(logFile, "%s", timestamp);
+    va_list args;
+    va_start(args, format);
+    vfprintf(logFile, format, args);
+    va_end(args);
+    fprintf(logFile, "\n");
+    fclose(logFile);
+}
+```
+Penjelasan: 
+Logging hanya mencatat operasi umum tanpa detail tentang isi data atau error spesifik.
+
+Kode Baru (hexed.c)
+Kode baru memperbaiki beberapa masalah dari kode lama, tetapi juga memiliki kekurangan dan masalah yang belum terselesaikan, terutama dalam hal fleksibilitas dan penanganan error.
+
+2.1. Tidak Mendukung Operasi Tulis atau Hapus
+**Masalah:**
+Kode baru hanya mendukung operasi baca (getattr, readdir, open, read), tanpa dukungan untuk create, write, unlink, atau rename. Ini membatasi fungsionalitas untuk skenario yang membutuhkan manipulasi file.
+
+Dampak: Pengguna tidak dapat membuat, mengedit, atau menghapus file melalui filesystem, sehingga kode ini hanya cocok untuk konversi dan pembacaan data statis.
+Bukti Kode (definisi operasi FUSE):
+
+```
+    .getattr = hexed_getattr,
+    .readdir = hexed_readdir,
+    .open    = hexed_open,
+    .read    = hexed_read,
+};
+```
+Penjelasan: 
+Tidak ada operasi seperti create atau write, berbeda dengan kode lama yang mendukung manipulasi file.
+
+2.2. Penanganan Error Heksadesimal Terbatas
+Masalah: Meskipun kode baru memiliki fungsi hex_to_binary untuk mengonversi teks heksadesimal, ia tidak memeriksa apakah data hasil konversi valid sebagai file gambar (misalnya, header PNG). Jika file teks tidak valid, file .png yang dihasilkan bisa rusak tanpa peringatan.
+Dampak: Pengguna mungkin mendapatkan file output yang tidak bisa dibuka sebagai gambar, tanpa penjelasan error yang jelas.
+
+```
+int hex_to_binary(const char *hex_str, unsigned char **data, size_t *data_len) {
+    size_t len = strlen(hex_str);
+    char *clean_hex = malloc(len + 1);
+    if (!clean_hex) return -ENOMEM;
+    int j = 0;
+    for (size_t i = 0; i < len; i++) {
+        if ((hex_str[i] >= '0' && hex_str[i] <= '9') ||
+            (hex_str[i] >= 'a' && hex_str[i] <= 'f') ||
+            (hex_str[i] >= 'A' && hex_str[i] <= 'F')) {
+            clean_hex[j++] = hex_str[i];
+        }
+    }
+    clean_hex[j] = '\0';
+    *data_len = j / 2;
+    *data = malloc(*data_len);
+    if (!*data) {
+        free(clean_hex);
+        return -ENOMEM;
+    }
+    for (size_t i = 0; i < *data_len; i++) {
+        (*data)[i] = hex_to_byte(clean_hex[i * 2], clean_hex[i * 2 + 1]);
+    }
+    free(clean_hex);
+    return 0;
+}
+```
+
+Penjelasan: 
+Fungsi ini hanya memfilter karakter heksadesimal dan mengonversinya ke biner, tetapi tidak memvalidasi apakah hasilnya membentuk file gambar yang valid.
+
+2.3. Ketergantungan pada Direktori Eksternal
+**Masalah:**
+ Kode baru bergantung pada direktori anomali/ dan image/ yang harus sudah ada atau dibuat saat program dijalankan. Tidak ada penanganan error jika direktori ini tidak ada atau tidak dapat diakses.
+
+Dampak: Jika direktori anomali/ atau image/ tidak ada, konversi atau pembacaan file akan gagal tanpa pemberitahuan yang jelas.
+```
+void convert_all_hex_files() {
+    DIR *dir = opendir(ANOMALI_DIR);
+    if (!dir) return;
+    struct dirent *entry;
+    while ((entry = readdir(dir))) {
+        if (entry->d_type == DT_REG && strstr(entry->d_name, ".txt")) {
+            // ...
+        }
+    }
+    closedir(dir);
+}
+```
+Penjelasan: Jika opendir(ANOMALI_DIR) gagal, fungsi hanya mengembalikan return tanpa logging atau pemberitahuan error.
+
+3. Perbaikan di Kode Baru dan Masalah yang Masih Ada
+
+Kode baru memperbaiki beberapa kekurangan kode lama, tetapi juga memperkenalkan atau gagal mengatasi masalah tertentu.
+
+Perbaikan dari Kode Lama
+-Struktur Direktori Lebih Jelas:
+Masalah Kode Lama: Hanya menampilkan satu file (Baymax.jpeg) tanpa subdirektori, membuatnya kurang fleksibel untuk banyak file.
+
+-Perbaikan Kode Baru: Menambahkan direktori image/ untuk file biner dan menampilkan file teks dari anomali/ di root, sehingga struktur lebih terorganisir.
+
+```
+if (strcmp(path, "/") == 0) {
+    DIR *dp = opendir(ANOMALI_DIR);
+    struct dirent *de;
+    while ((de = readdir(dp)) != NULL) {
+        if (de->d_type == DT_REG && strstr(de->d_name, ".txt")) {
+            filler(buf, de->d_name, NULL, 0, 0);
+        }
+    }
+    closedir(dp);
+    filler(buf, "image", NULL, 0, 0);
+} else if (strcmp(path, "/image") == 0) {
+    DIR *dp = opendir(IMAGE_DIR);
+    struct dirent *de;
+    while ((de = readdir(dp)) != NULL) {
+        if (de->d_type == DT_REG && strstr(de->d_name, ".png")) {
+            filler(buf, de->d_name, NULL, 0, 0);
+        }
+    }
+    closedir(dp);
+}
+```
+Penjelasan: Menampilkan file teks dan direktori image/, memberikan struktur yang lebih jelas.
+
+Konversi Heksadesimal:
+Masalah Kode Lama: Tidak ada konversi data, hanya menggabungkan chunk biner tanpa validasi.
+
+Perbaikan Kode Baru: Menambahkan fungsi hex_to_binary untuk mengonversi teks heksadesimal ke biner, memastikan data diproses sebelum disimpan.
+
+Bukti Kode: Lihat hex_to_binary di atas.
+Penjelasan: Memungkinkan konversi data teks heksadesimal menjadi file biner, cocok untuk menghasilkan file gambar.
+
+Logging Lebih Spesifik:
+Masalah Kode Lama: Logging terlalu umum, mencakup semua operasi tanpa detail spesifik.
+
+Perbaikan Kode Baru: Logging hanya untuk konversi, dengan detail nama file input dan output.
+
+Bukti Kode (di log_conversion):
+```
+void log_conversion(const char *input_file, const char *output_file) {
+    FILE *log_fp = fopen(LOG_FILE, "a");
+    if (!log_fp) return;
+    fprintf(log_fp, "[%s]: Successfully converted hexadecimal text %s to %s.\n",
+            timestamp, input_file, output_file);
+    fclose(log_fp);
+}
+```
+Penjelasan: Logging fokus pada konversi, membuatnya lebih relevan untuk debugging.
+Masalah yang Masih Ada atau Baru di Kode Baru
+Kehilangan Fleksibilitas Operasi Tulis/Hapus:
+Kode lama mendukung manipulasi file (create, write, unlink, rename), tetapi kode baru tidak, sehingga kurang fleksibel untuk skenario dinamis.
+
+Dampak: Tidak dapat digunakan untuk aplikasi yang memerlukan pembuatan atau pengeditan file.
+Penanganan Error Heksadesimal Tidak Lengkap:
+Meskipun kode baru memfilter karakter heksadesimal, ia tidak memvalidasi apakah hasil konversi membentuk file gambar yang valid.
+
+Dampak: File .png yang dihasilkan bisa rusak tanpa peringatan.
+Tidak Ada Penanganan Direktori yang Hilang:
+Kode baru tidak menangani kasus di mana direktori anomali/ atau image/ tidak ada, menyebabkan kegagalan diam-diam.
+Bukti Kode: Lihat convert_all_hex_files di atas, di mana if (!dir) return; tidak memberikan feedback error.
+
+4. Kesimpulan
+Kode Lama:
+Kekurangan: Tidak ada validasi data chunk, struktur filesystem terlalu sederhana, dan logging tidak spesifik.
+Masalah Tidak Terselesaikan: Rawan error jika chunk hilang, tidak mendukung konversi data, dan sulit untuk debugging masalah spesifik.
+Kode Baru:
+Perbaikan: Menambahkan konversi heksadesimal, struktur direktori lebih jelas, dan logging spesifik untuk konversi.
+Kekurangan: Tidak mendukung operasi tulis/hapus, penanganan error heksadesimal terbatas, dan ketergantungan pada direktori tanpa validasi.
+Masalah Tidak Terselesaikan: Validasi file gambar, penanganan error direktori, dan fleksibilitas untuk manipulasi file.
+
+# Kendala tidak solve no 1
+Perintah yang Dijalankan & Output
+```
+ls mnt
+ls: tidak dapat mengakses 'mnt/conversion.log': Tidak ada berkas atau direktori seperti itu
+ls: tidak dapat mengakses 'mnt/hexed': Tidak ada berkas atau direktori seperti itu
+ls: tidak dapat mengakses 'mnt/hexed.c': Tidak ada berkas atau direktori seperti itu
+```
+📌 Kendala: Perintah ls mnt gagal mengakses file karena file conversion.log, hexed, dan hexed.c tidak berada di dalam direktori mnt hasil mount FUSE, melainkan di direktori kerja utama.
+```
+ls mnt/image
+# Tidak ada output
+```
+📌 Kendala: Folder mnt/image kosong karena file PNG hasil konversi tidak dimount ulang ke dalam direktori mnt/image melalui FUSE. File hasil konversi sebenarnya disimpan di image/.
+
+```
+cat mnt/1.txt
+cat: mnt/1.txt: Tidak ada berkas atau direktori seperti itu
+```
+📌 Kendala: File 1.txt tidak muncul karena implementasi FUSE hanya membaca file dari anomali/, namun mungkin saat hexed dijalankan tidak termount dengan benar atau mount point belum fresh.
+```
+tree
+...
+├── anomali
+│   ├── 1.txt ...
+├── image
+│   ├── 1_image_2025-05-23_15:10:10.png ...
+├── mnt
+│   ├── anomali
+│   ├── image
+│   └── mnt
+        └── image
+```
+📌  File hasil konversi tersimpan dengan benar di image/ dan conversion.log juga telah dibuat tetapi tidak seperti konteks soal.
+
+📜 Log Konversi
+```
+$ cat conversion.log
+[2025-05-23_15:10:10]: Successfully converted hexadecimal text 4.txt to 4_image_2025-05-23_15:10:10.png.
+```
+
+📌 Berhasil: Semua file dari anomali/*.txt telah dikonversi dengan timestamp yang sama dan dicatat sesuai format.
+
+
+Konversi dicatat ke conversion.log dengan format:
+```
+[YYYY-MM-DD_HH:MM:SS]: Successfully converted hexadecimal text 1.txt to 1_image_YYYY-MM-DD_HH:MM:SS.png.
+```
+FUSE hanya digunakan untuk membaca file dari mnt (baik .txt maupun .png), bukan untuk melakukan konversi saat file dibuka, sehingga konversi terjadi satu kali di awal saat main() dijalankan.
+
+
 
 
 ## SOAL 2 (Putri Joselina Silitonga)
