@@ -547,10 +547,7 @@ Dampak:
 
 7. Fungsi unlink
 Kode Lama:
-
-c
-
-Copy
+```
 static int baymax_unlink(const char *path) {
     char filename[256];
     snprintf(filename, sizeof(filename), "%s", path + 1);
