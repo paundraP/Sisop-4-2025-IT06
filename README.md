@@ -670,6 +670,8 @@ static int baymax_read(const char *path, char *buf, size_t size, off_t offset, s
 
 - Tidak ada logging untuk debugging.
 
+  
+
 Kode Baru:
 ```
 static int baymax_read(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fi) {
@@ -732,7 +734,7 @@ Dampak:
 2. Logging membantu melacak kesalahan baca.
 
 6. Fungsi create dan write
-```
+````
 static int baymax_create(const char *path, mode_t mode, struct fuse_file_info *fi) {
     char filename[256];
     snprintf(filename, sizeof(filename), "%s", path + 1);
@@ -767,7 +769,7 @@ static int baymax_write(const char *path, const char *buf, size_t size, off_t of
     fprintf(stderr, "\n");
     return totalWritten;
 }
-```
+````
 
 - Tidak mendukung penulisan ke chunk dengan offset, selalu menulis dari awal.
 
@@ -776,7 +778,7 @@ static int baymax_write(const char *path, const char *buf, size_t size, off_t of
 -Tidak ada penanganan memori dinamis yang baik.
 
 Kode Baru:
-```
+````
 static int baymax_create(const char *path, mode_t mode, struct fuse_file_info *fi) {
     char chunk_path[MAX_PATH];
     snprintf(chunk_path, MAX_PATH, "%s/%s.000", RELICS_DIR, path + 1);
@@ -828,7 +830,7 @@ static int baymax_write(const char *path, const char *buf, size_t size, off_t of
     free(filename);
     return bytes_written;
 }
-```
+````
 Perbaikan:
 
 - Mendukung penulisan dengan offset, menggunakan mode "ab" untuk append jika bukan chunk baru.
